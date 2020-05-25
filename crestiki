@@ -1,0 +1,114 @@
+#!/bin/sh
+
+FIFO_PATH="fifofile"
+x=0
+y=0
+coords=""
+player_symbol="X"
+opposite_symbol="0"
+TURN=0
+
+field="_________"
+lengthField=9
+steps=9
+
+
+if [ ! -p "$FIFO_PATH" ]; then
+    mknod "$FIFO_PATH" p
+else
+    player_symbol='0'
+    opposite_symbol='X'
+    TURN=1
+fi
+
+tput clear
+echo "___"
+echo "___"
+echo "___"
+xin=4
+yin=0
+xinfo=0
+yinfo=6
+stepx=1
+stepy=6
+while true 
+do
+    if [ $steps -eq 0 ]; then
+        break
+    fi
+
+    tput cup $xin $yin
+    tput el
+    if [ $TURN -eq 0 ]; then
+        tput cup $xinfo $yinfo
+        echo "YOUR TURN    "
+        tput cup $xin $yin
+        read x y
+
+        if [ ${#y} -gt 1 ]; then
+            continue
+        fi
+
+        if [ -z ${y} ]; then
+            continue
+        fi
+
+        if [ `expr $x : '[0-2]'` -eq 0 -o `expr $y : '[0-2]'` -eq 0 ]; then
+            continue
+        fi
+
+        index=`expr $x '*' 3 + $y`
+        indexOfElement=`expr $index + 1`    
+        indexEnd=`expr $indexOfElement + 1`
+        countEnd=`expr $lengthField - $indexOfElement`
+
+        element=`expr substr $field $indexOfElement 1`
+
+        if [ ! $element = "_" ]; then
+            continue
+        fi
+        begin=`expr substr $field 1 $index`
+        end=`expr substr $field $indexEnd $countEnd`
+
+        field="${begin}${player_symbol}${end}"
+
+        coords="$x-$y"
+        echo $coords > $FIFO_PATH 
+
+        tput cup $x $y
+        echo $player_symbol
+        TURN=1
+        
+    else
+        tput cup $xinfo $yinfo
+        echo "OPPOSITE TURN"
+        tput cup $xin $yin
+
+        read coords < $FIFO_PATH 
+
+        x=`expr substr $coords 1 1`
+        y=`expr substr $coords 3 1`      
+
+        index=`expr $x '*' 3 + $y`
+        indexOfElement=`expr $index + 1` 
+        indexEnd=`expr $indexOfElement + 1`
+        countEnd=`expr $lengthField - $indexOfElement`
+
+        begin=`expr substr $field 1 $index`
+        end=`expr substr $field $indexEnd $countEnd`
+
+        field="${begin}${opposite_symbol}${end}"
+
+        tput cup $x $y
+        echo $opposite_symbol
+        TURN=0
+        
+    fi
+    steps=`expr $steps - 1`
+    tput cup $xin $yin
+    tput el
+
+    
+done
+
+find . -type p -delete
